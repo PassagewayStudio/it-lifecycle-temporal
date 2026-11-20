@@ -1,9 +1,12 @@
-"""Activities. suspend_okta_user is real; the others are still stubs.
+"""Activities. Okta activities are real; lock_jamf_device is still a stub.
 
 Keep every activity idempotent: running it twice must be safe, because
 Temporal may retry it.
 """
+import os
+
 from temporalio import activity
+from temporalio.exceptions import ApplicationError
 
 import okta_client
 
@@ -24,8 +27,17 @@ async def lock_jamf_device(device_serial: str) -> str:
 
 @activity.defn
 async def delete_okta_user(user_email: str) -> str:
-    activity.logger.info("Deleting Okta user %s (stub)", user_email)
-    return f"okta-deleted:{user_email}"
+    # Permanent and irreversible, so it is off unless you opt in. This stops a
+    # typo or a wrong .env from deleting a real account.
+    if os.environ.get("OKTA_ALLOW_DELETE") != "true":
+        raise ApplicationError(
+            "Okta delete is disabled. Set OKTA_ALLOW_DELETE=true in .env to enable it.",
+            non_retryable=True,
+        )
+    activity.logger.info("Deleting Okta user %s", user_email)
+    async with okta_client.build_client() as client:
+        outcome = await okta_client.delete_user(client, user_email)
+    return f"okta-{outcome}:{user_email}"
 
 
 @activity.defn

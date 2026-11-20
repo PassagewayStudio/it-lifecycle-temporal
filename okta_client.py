@@ -87,3 +87,30 @@ async def remove_from_group(client: httpx.AsyncClient, login: str, group_id: str
     if resp.status_code not in (200, 204):
         _fail(resp, f"removal of {login} from group {group_id}")
     return "removed"
+
+
+async def delete_user(client: httpx.AsyncClient, login: str) -> str:
+    """Permanently delete the user. Safe to call more than once.
+
+    Okta needs two steps: a user must be DEPROVISIONED (deactivated) before a
+    second DELETE removes it for good. Returns "deleted" or "already-deleted".
+    """
+    resp = await client.get(f"/api/v1/users/{quote(login, safe='@')}")
+    if resp.status_code == 404:
+        return "already-deleted"  # a retry after success, or the user never existed
+    if resp.status_code != 200:
+        _fail(resp, f"lookup of {login}")
+    user = resp.json()
+    user_id, status = user["id"], user["status"]
+
+    if status != "DEPROVISIONED":
+        resp = await client.post(
+            f"/api/v1/users/{user_id}/lifecycle/deactivate", params={"sendEmail": "false"}
+        )
+        if resp.status_code not in (200, 204):
+            _fail(resp, f"deactivation of {login}")
+
+    resp = await client.delete(f"/api/v1/users/{user_id}", params={"sendEmail": "false"})
+    if resp.status_code not in (200, 204):
+        _fail(resp, f"delete of {login}")
+    return "deleted"

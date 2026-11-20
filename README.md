@@ -38,12 +38,13 @@ python run_access_request.py status  jane.doe@example.com
 
 ## Status
 - Okta: suspend + session clear (real, tested against a dev tenant), group add/remove (real)
-- Jamf lock and Okta delete: stubs (no managed Mac available for the lab; tested with mocks only)
+- Okta delete (real, deactivate then delete): disabled unless `OKTA_ALLOW_DELETE=true` in `.env`; use a throwaway user only
+- Jamf lock: stub (no managed Mac available for the lab)
 
 ## Roadmap
 - [x] Real Okta suspend and session clear
 - [x] Time-boxed access workflow (approval signal, timer, auto-revoke)
-- [ ] Real Okta delete
+- [x] Real Okta delete (behind an opt-in flag)
 - [ ] Real Jamf lock command (needs a managed device)
 - [ ] Onboarding and mover workflows
 - [ ] Read-only MCP server (workflow status)
