@@ -1,17 +1,32 @@
-"""Time-skipping test: the 14-day wait runs in about a second.
+"""Time-skipping workflow test using fake activities (no Okta, no Jamf).
 
 Run from the project root:  python -m pytest -q
-(needs: pip install pytest pytest-asyncio)
 """
 import uuid
 
 import pytest
+from temporalio import activity
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
-from activities import delete_okta_user, lock_jamf_device, suspend_okta_user
 from shared import TASK_QUEUE, OffboardingParams
 from workflows import OffboardingWorkflow
+
+
+# Fakes registered under the same names the workflow calls.
+@activity.defn(name="suspend_okta_user")
+async def fake_suspend_okta_user(user_email: str) -> str:
+    return f"okta-suspended:{user_email}"
+
+
+@activity.defn(name="lock_jamf_device")
+async def fake_lock_jamf_device(device_serial: str) -> str:
+    return f"jamf-locked:{device_serial}"
+
+
+@activity.defn(name="delete_okta_user")
+async def fake_delete_okta_user(user_email: str) -> str:
+    return f"okta-deleted:{user_email}"
 
 
 @pytest.mark.asyncio
@@ -22,7 +37,7 @@ async def test_offboarding_runs_all_steps_after_timer():
             env.client,
             task_queue=TASK_QUEUE,
             workflows=[OffboardingWorkflow],
-            activities=[suspend_okta_user, lock_jamf_device, delete_okta_user],
+            activities=[fake_suspend_okta_user, fake_lock_jamf_device, fake_delete_okta_user],
         ):
             result = await env.client.execute_workflow(
                 OffboardingWorkflow.run,

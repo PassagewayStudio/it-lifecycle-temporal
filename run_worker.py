@@ -1,5 +1,6 @@
 import asyncio
 
+from dotenv import load_dotenv
 from temporalio.client import Client
 from temporalio.worker import Worker
 
@@ -9,6 +10,7 @@ from workflows import OffboardingWorkflow
 
 
 async def main() -> None:
+    load_dotenv()  # reads OKTA_* from .env (never commit that file)
     client = await Client.connect("localhost:7233")
     worker = Worker(
         client,
