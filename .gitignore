@@ -1,0 +1,7 @@
+env/
+__pycache__/
+*.pyc
+temporal.exe
+temporal.db
+.env
+.pytest_cache/
