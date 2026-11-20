@@ -26,3 +26,19 @@ async def lock_jamf_device(device_serial: str) -> str:
 async def delete_okta_user(user_email: str) -> str:
     activity.logger.info("Deleting Okta user %s (stub)", user_email)
     return f"okta-deleted:{user_email}"
+
+
+@activity.defn
+async def grant_okta_group_access(user_email: str, group_id: str) -> str:
+    activity.logger.info("Adding %s to Okta group %s", user_email, group_id)
+    async with okta_client.build_client() as client:
+        await okta_client.add_to_group(client, user_email, group_id)
+    return f"granted:{user_email}:{group_id}"
+
+
+@activity.defn
+async def revoke_okta_group_access(user_email: str, group_id: str) -> str:
+    activity.logger.info("Removing %s from Okta group %s", user_email, group_id)
+    async with okta_client.build_client() as client:
+        await okta_client.remove_from_group(client, user_email, group_id)
+    return f"revoked:{user_email}:{group_id}"

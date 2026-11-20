@@ -4,7 +4,14 @@ from dotenv import load_dotenv
 from temporalio.client import Client
 from temporalio.worker import Worker
 
-from activities import delete_okta_user, lock_jamf_device, suspend_okta_user
+from access_workflows import AccessRequestWorkflow
+from activities import (
+    delete_okta_user,
+    grant_okta_group_access,
+    lock_jamf_device,
+    revoke_okta_group_access,
+    suspend_okta_user,
+)
 from shared import TASK_QUEUE
 from workflows import OffboardingWorkflow
 
@@ -15,8 +22,14 @@ async def main() -> None:
     worker = Worker(
         client,
         task_queue=TASK_QUEUE,
-        workflows=[OffboardingWorkflow],
-        activities=[suspend_okta_user, lock_jamf_device, delete_okta_user],
+        workflows=[OffboardingWorkflow, AccessRequestWorkflow],
+        activities=[
+            suspend_okta_user,
+            lock_jamf_device,
+            delete_okta_user,
+            grant_okta_group_access,
+            revoke_okta_group_access,
+        ],
     )
     print(f"Worker listening on task queue '{TASK_QUEUE}'. Ctrl+C to stop.")
     await worker.run()

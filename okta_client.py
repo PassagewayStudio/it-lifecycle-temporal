@@ -62,3 +62,28 @@ async def suspend_user(client: httpx.AsyncClient, login: str) -> str:
     if resp.status_code not in (200, 204):
         _fail(resp, f"session clear for {login}")
     return outcome
+
+
+async def _user_id(client: httpx.AsyncClient, login: str) -> str:
+    resp = await client.get(f"/api/v1/users/{quote(login, safe='@')}")
+    if resp.status_code != 200:
+        _fail(resp, f"lookup of {login}")
+    return resp.json()["id"]
+
+
+async def add_to_group(client: httpx.AsyncClient, login: str, group_id: str) -> str:
+    """Add the user to an Okta group. PUT is idempotent: re-adding is harmless."""
+    user_id = await _user_id(client, login)
+    resp = await client.put(f"/api/v1/groups/{group_id}/users/{user_id}")
+    if resp.status_code not in (200, 204):
+        _fail(resp, f"add of {login} to group {group_id}")
+    return "added"
+
+
+async def remove_from_group(client: httpx.AsyncClient, login: str, group_id: str) -> str:
+    """Remove the user from an Okta group. Removing a non-member is harmless."""
+    user_id = await _user_id(client, login)
+    resp = await client.delete(f"/api/v1/groups/{group_id}/users/{user_id}")
+    if resp.status_code not in (200, 204):
+        _fail(resp, f"removal of {login} from group {group_id}")
+    return "removed"

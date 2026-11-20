@@ -59,3 +59,25 @@ async def test_deprovisioned_user_fails_without_retry():
         with pytest.raises(ApplicationError) as exc:
             await okta_client.suspend_user(client, "jane.doe@example.com")
     assert exc.value.non_retryable
+
+
+def group_client(calls):
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, request.url.path))
+        if request.method == "GET":
+            return httpx.Response(200, json={"id": "00u123", "status": "ACTIVE"})
+        return httpx.Response(204)
+
+    return httpx.AsyncClient(
+        base_url="https://example.okta.com", transport=httpx.MockTransport(handler)
+    )
+
+
+@pytest.mark.asyncio
+async def test_add_and_remove_group_membership():
+    calls = []
+    async with group_client(calls) as client:
+        assert await okta_client.add_to_group(client, "jane@example.com", "00g1") == "added"
+        assert await okta_client.remove_from_group(client, "jane@example.com", "00g1") == "removed"
+    assert ("PUT", "/api/v1/groups/00g1/users/00u123") in calls
+    assert ("DELETE", "/api/v1/groups/00g1/users/00u123") in calls

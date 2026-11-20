@@ -25,9 +25,26 @@ python run_workflow.py jane.doe@example.com C02TEST12345 30   # terminal 3
 ## Tests
 `python -m pytest -q` uses Temporal's time-skipping test server, so a 14-day wait runs in seconds.
 
+## Access requests (time-boxed access)
+`AccessRequestWorkflow`: a request waits for a manager's approval (signal), adds the user to an
+Okta group, keeps the access for a set time on a durable timer, then removes it. An unanswered
+request expires, and `revoke` ends access early.
+
+```bash
+python run_access_request.py request jane.doe@example.com <okta_group_id> 120
+python run_access_request.py approve jane.doe@example.com manager
+python run_access_request.py status  jane.doe@example.com
+```
+
+## Status
+- Okta: suspend + session clear (real, tested against a dev tenant), group add/remove (real)
+- Jamf lock and Okta delete: stubs (no managed Mac available for the lab; tested with mocks only)
+
 ## Roadmap
-- [ ] Real Okta API calls (suspend, revoke sessions, delete)
-- [ ] Real Jamf lock command
-- [ ] Onboarding, mover and time-boxed access workflows
+- [x] Real Okta suspend and session clear
+- [x] Time-boxed access workflow (approval signal, timer, auto-revoke)
+- [ ] Real Okta delete
+- [ ] Real Jamf lock command (needs a managed device)
+- [ ] Onboarding and mover workflows
 - [ ] Read-only MCP server (workflow status)
 - [ ] Design doc and runbook
