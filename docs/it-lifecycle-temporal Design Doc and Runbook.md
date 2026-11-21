@@ -8,6 +8,8 @@ it-lifecycle-temporal automates two IT workflows on Temporal (Python SDK): offbo
 
 What is real: Okta suspend, session clear, delete, and group add/remove, each tested against a dev tenant and against mocked HTTP. What is stubbed: the Jamf device lock, because no managed device was available for the lab. This is a lab project on a local dev server, not a production deployment.
 
+An AI assistant can also check on the workflows through a read-only MCP server, tested live against the dev server.
+
 ## Problem and goals
 
 Offboarding and access changes are multi-step, touch several systems, and fail halfway: an API rate limit, a missed return of a laptop, an approval that never comes. Done by hand or in a chain of scripts, a half-finished offboarding is easy to miss and hard to audit.
@@ -27,9 +29,11 @@ Non-goals for this lab: HR system integration, a production deployment, and mana
 
 Temporal stores each request's progress and timers, so the worker can be stopped and restarted without losing a request. The worker is the only part that calls Okta, and it does so only through activities.
 
+A read-only MCP server (see below) connects to Temporal the same way the command-line scripts do, but can only list and query workflows.
+
 ## Workflows
 
-Two workflows share one task queue (`off``/``boarding-task-queue`) and one worker. Workflow IDs include the user's email, so only one run per user can be active at a time.
+Two workflows share one task queue (`off``boarding-task-queue`) and one worker. Workflow IDs include the user's email, so only one run per user can be active at a time.
 
 **OffboardingWorkflow**
 
@@ -58,6 +62,21 @@ A `status` query reports the current step without changing anything.
 - **Two kinds of failure.** Rate limits (429) and server errors raise a normal error, so Temporal retries with backoff (1 s growing to 30 s, up to 5 attempts). Bad token, missing user, a user in a state that cannot be suspended, or delete not enabled raise a non-retriable error and fail the workflow immediately, because retrying cannot fix them.
 - **Cleanup always runs.** The access-request workflow removes group access after the timer or an early revoke, whichever comes first.
 - **Tests.** Workflow tests use Temporal's time-skipping test server, so a 14-day wait runs in about a second. Okta calls are tested against a mocked HTTP transport, so nothing touches a tenant during tests. 13 tests pass.
+
+## Read-only MCP server
+
+`mcp_server.py` lets an AI assistant answer "what step is this offboarding on?" and "why is it stuck?". It reads from Temporal and can change nothing.
+
+| Tool | What it returns |
+| --- | --- |
+| `list_workflows` | Workflows by status (Running by default), with ID, type and start time |
+| `get_workflow_status` | The status plus the current step, taken from the workflow's `status` query |
+| `diagnose_workflow` | Pending activities, retry counts and last failures, plus plain-English hints |
+
+- **Read-only by design.** All three tools are marked read-only. There are no signal, terminate or start tools, and the server never calls Okta, so it needs no Okta token. Any future write tool belongs behind human approval.
+- **Worker-down detection.** If a workflow does not answer the status query within 5 seconds, the tools report the step as unavailable and the diagnosis says the worker is probably not running.
+- **Tested live.** Connected to Claude Desktop against the dev server, it described a healthy 300-second device-return wait, reported the step as unavailable while the worker was stopped, and returned to normal after the worker restarted.
+- **Limit.** It cannot tell a stopped worker from one that is restarting, so a single "unavailable" reading is a prompt to check the worker, not proof it is down.
 
 ## Security and controls
 
@@ -123,7 +142,7 @@ Known limits:
 
 Next steps, in the order I would take them:
 
-1. A read-only MCP server that answers "what step is this offboarding on?" through the existing `status` query, with any write action behind human approval.
+1. Write actions for the MCP server, such as sending an approve signal, only with authenticated approvers and human confirmation.
 2. A real Jamf lock once a managed device is available.
 3. Onboarding and mover workflows that reuse the same activities.
 4. Slack approvals, and Okta group setup managed with Terraform.
