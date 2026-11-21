@@ -36,6 +36,16 @@ python run_access_request.py approve jane.doe@example.com manager
 python run_access_request.py status  jane.doe@example.com
 ```
 
+## MCP server (read-only)
+`mcp_server.py` lets an AI assistant check on workflows. Tools: `list_workflows`,
+`get_workflow_status` and `diagnose_workflow` (pending activities, retries, worker down?).
+It only reads from Temporal, with no signal, terminate or start tools, and it never touches Okta.
+Any future write tool should sit behind human approval.
+
+```bash
+python mcp_server.py        # stdio; normally launched by the MCP client, not by hand
+```
+
 ## Status
 - Okta: suspend + session clear (real, tested against a dev tenant), group add/remove (real)
 - Okta delete (real, deactivate then delete): disabled unless `OKTA_ALLOW_DELETE=true` in `.env`; use a throwaway user only
@@ -47,5 +57,5 @@ python run_access_request.py status  jane.doe@example.com
 - [x] Real Okta delete (behind an opt-in flag)
 - [ ] Real Jamf lock command (needs a managed device)
 - [ ] Onboarding and mover workflows
-- [ ] Read-only MCP server (workflow status)
-- [ ] Design doc and runbook
+- [x] Read-only MCP server (workflow status and diagnosis)
+- [x] Design doc and runbook (docs/)

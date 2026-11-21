@@ -1,5 +1,6 @@
 temporalio
 httpx
 python-dotenv
+mcp>=2,<3
 pytest
 pytest-asyncio
